@@ -1,0 +1,1019 @@
+{
+  "name": "AI Competitive Content Response Agent",
+  "description": "Monitors a specified competitor's most-cited page in a selected Profound category. When citation volume and positive validation sentiment cross configurable thresholds, the workflow researches the page, identifies evidence gaps, and builds a sourced competitive-response package for human review. Otherwise, it returns a concise no-action summary.",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "position": {
+        "x": -100,
+        "y": 0
+      },
+      "data": {
+        "title": "Start"
+      },
+      "input_variables": [],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "name": "competitor_domain",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "competitor_domain"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "name": "competitor_name",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "competitor_name"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000003",
+            "name": "topic",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "topic"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000004",
+            "name": "target_prompt",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "target_prompt"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000005",
+            "name": "citation_count_threshold",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "citation_count_threshold"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000006",
+            "name": "positive_sentiment_threshold",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "positive_sentiment_threshold"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000007",
+            "name": "manual_url",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "manual_url"
+        }
+      ],
+      "deletable": false,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": true
+    },
+    {
+      "id": "url_source",
+      "type": "tool:code_executor:execute_code",
+      "position": {
+        "x": -150,
+        "y": 156
+      },
+      "data": {
+        "title": "Select page URL source",
+        "tool_parameters": {
+          "code": "def main(manual_url):\n    url = str(manual_url or '').strip()\n    url = url.replace('https://', '').replace('http://', '')\n    if url.startswith('www.'):\n        url = url[4:]\n    return {'manual_override': url.rstrip('/')}\n",
+          "timeout": 30,
+          "language": "python",
+          "input_variables": [
+            {
+              "name": "manual_url",
+              "value": "{{00000000-0000-4000-8000-000000000007}}"
+            }
+          ]
+        },
+        "provider_id": "code_executor",
+        "tool_id": "execute_code"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000007",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000008",
+            "name": "manual_override",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "manual_override"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "citation_pages",
+      "type": "tool:profound:citation_pages",
+      "position": {
+        "x": -150,
+        "y": 353
+      },
+      "data": {
+        "provider_id": "profound",
+        "title": "Pull competitor's top cited pages (7d)",
+        "tool_id": "citation_pages",
+        "tool_parameters": {
+          "limit": 5,
+          "metric": "count",
+          "filters": [
+            {
+              "type": "hostname",
+              "values": "{{00000000-0000-4000-8000-000000000001}}"
+            }
+          ],
+          "date_range": "last_7_days",
+          "category_id": "10000000-0000-4000-8000-000000000001",
+          "output_format": "json",
+          "sort_direction": "desc"
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000001",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000009",
+            "name": "citation_json",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "json"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "extract_top_url",
+      "type": "llm",
+      "position": {
+        "x": -150,
+        "y": 550
+      },
+      "data": {
+        "model": "claude-fable-latest",
+        "model_parameters": {
+          "user_prompt": "Manual override URL (may be blank): '{{00000000-0000-4000-8000-000000000008}}'\n\nIf the manual override URL above is non-blank, output it EXACTLY as given and stop — ignore everything below.\n\nOtherwise, here is a JSON array of page citation records: {{00000000-0000-4000-8000-000000000009}}\n\nEach record has a 'url' field and a 'metric_value' field. If a url repeats across dates, sum its metric_value across all its entries first, then pick the url with the highest total. Return ONLY that url as plain text — no quotes, no punctuation, no explanation, nothing else.",
+          "enable_web_search": false,
+          "system_prompt": ""
+        },
+        "title": "Extract top page URL",
+        "provider": "anthropic"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000008",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000009",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000000a",
+            "name": "top_page_url",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "sentiment_analysis",
+      "type": "tool:profound:citation_sentiment_analysis",
+      "position": {
+        "x": -150,
+        "y": 747
+      },
+      "data": {
+        "tool_parameters": {
+          "href": "{{00000000-0000-4000-8000-00000000000a}}",
+          "filters": [
+            {
+              "type": "asset",
+              "values": [
+                "Primary Brand",
+                "Competitor A",
+                "Competitor B",
+                "Competitor C",
+                "Competitor D",
+                "Competitor E"
+              ]
+            }
+          ],
+          "category_id": "10000000-0000-4000-8000-000000000001"
+        },
+        "title": "Read tone + claims on that page",
+        "provider_id": "profound",
+        "tool_id": "citation_sentiment_analysis"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000a",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000000b",
+            "name": "sentiment_json",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "json"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "decide",
+      "type": "llm",
+      "position": {
+        "x": -150,
+        "y": 944
+      },
+      "data": {
+        "model_parameters": {
+          "user_prompt": "You decide whether a competitor page should be rebutted.\n\nManual override URL (may be blank): '{{00000000-0000-4000-8000-000000000008}}'\nSelected page URL: {{00000000-0000-4000-8000-00000000000a}}\nCitation volume records (may be an empty array): {{00000000-0000-4000-8000-000000000009}}\nSentiment / extracted-claims data for this page (may be an empty array): {{00000000-0000-4000-8000-00000000000b}}\nCitation count threshold: '{{00000000-0000-4000-8000-000000000005}}'\nPositive sentiment ratio threshold, 0-to-1 scale: '{{00000000-0000-4000-8000-000000000006}}'\n\nRules:\n1. If the manual override URL is non-blank, a human has already chosen this page. Ignore all thresholds and output ONLY the selected page URL, nothing else.\n2. Otherwise apply threshold logic. Treat a blank or 0 threshold as automatically satisfied. Sum metric_value across all citation records for the selected page to get total citation volume. Among the sentiment claims, compute the ratio of positive-polarity claims to the total number of positive-plus-negative claims. If there are zero sentiment claims, treat the positive ratio as 0 (not satisfied).\n3. If total citation volume meets or exceeds the citation threshold AND the positive ratio meets or exceeds the sentiment threshold, output ONLY the selected page URL as plain text.\n4. Otherwise output nothing at all — zero characters.",
+          "enable_web_search": false,
+          "system_prompt": ""
+        },
+        "title": "Check citation + sentiment thresholds",
+        "model": "claude-fable-latest",
+        "provider": "anthropic"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000008",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000a",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000009",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000b",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000005",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000006",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000000c",
+            "name": "trigger_url",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "gate",
+      "type": "conditional",
+      "position": {
+        "x": -150,
+        "y": 1172
+      },
+      "data": {
+        "title": "Threshold crossed?",
+        "cases": [
+          {
+            "case_id": "case_true",
+            "conditions": [
+              {
+                "id": "00000000-0000-4000-8000-00000000000d",
+                "lhs": "{{00000000-0000-4000-8000-00000000000c}}",
+                "comparison_operator": "is not empty"
+              }
+            ],
+            "logical_operator": "and"
+          },
+          {
+            "case_id": "case_false",
+            "conditions": [],
+            "logical_operator": "and"
+          }
+        ]
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000c",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000000e",
+            "name": "Result",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "result"
+        }
+      ],
+      "deletable": true,
+      "selected": false,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "condense_gap",
+      "type": "llm",
+      "position": {
+        "x": -350,
+        "y": 1360
+      },
+      "data": {
+        "title": "Summarize competitor's evidence gap",
+        "provider": "openai",
+        "model_parameters": {
+          "user_prompt": "Competitor: {{00000000-0000-4000-8000-000000000002}}. Their page earning strong AI-citation traction: {{00000000-0000-4000-8000-00000000000c}}. Page content, title, and sentiment-tagged claims: {{00000000-0000-4000-8000-00000000000b}}. In under 150 words: (1) summarize the core claims and angle of this page, (2) explain what likely makes AI engines cite and validate it positively, (3) list the specific evidence gaps, unsourced statistics, or missing third-party validation a competing piece should close. If the claims data is empty, base the analysis on the page URL and topic alone and say so in one short clause. Plain text, no headers.",
+          "enable_web_search": false,
+          "system_prompt": ""
+        },
+        "model": "gpt-5.6-luna"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000002",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000c",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000b",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-00000000000f",
+            "name": "gap_summary",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "no_action_message",
+      "type": "llm",
+      "position": {
+        "x": 50,
+        "y": 1360
+      },
+      "data": {
+        "provider": "openai",
+        "model_parameters": {
+          "user_prompt": "Competitor {{00000000-0000-4000-8000-000000000002}}'s top cited page this period had this citation data (may be an empty array): {{00000000-0000-4000-8000-000000000009}}. In one or two sentences, state plainly that no rebuttal was triggered this run because citation volume or positive-validation sentiment did not cross the configured thresholds, and name the competitor's top page URL if visible in the data.",
+          "enable_web_search": false,
+          "system_prompt": ""
+        },
+        "model": "gpt-5.5",
+        "title": "Write no-action note"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000002",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000009",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000010",
+            "name": "no_action_note",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "research_report",
+      "type": "tool:profound:article_research_report",
+      "position": {
+        "x": -350,
+        "y": 1557
+      },
+      "data": {
+        "tool_id": "article_research_report",
+        "title": "Research stronger external sources",
+        "tool_parameters": {
+          "prompts": "{{00000000-0000-4000-8000-000000000004}}",
+          "company_name": "Primary Brand",
+          "content_type": "Listicle",
+          "article_title": "{{00000000-0000-4000-8000-000000000003}}",
+          "audience_segment": ""
+        },
+        "provider_id": "profound"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000003",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000004",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000011",
+            "name": "research_text",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "no_action_end",
+      "type": "end",
+      "position": {
+        "x": 100,
+        "y": 2967
+      },
+      "data": {
+        "title": "No rebuttal needed",
+        "outputs": [
+          {
+            "key": "no_action_note",
+            "variable_id": "00000000-0000-4000-8000-000000000010",
+            "required": true,
+            "is_dynamic": true
+          }
+        ],
+        "dynamic_output_variable_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000010",
+          "required": true
+        }
+      ],
+      "output_variables": [],
+      "deletable": false,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    },
+    {
+      "id": "condense_research",
+      "type": "llm",
+      "position": {
+        "x": -350,
+        "y": 1754
+      },
+      "data": {
+        "model_parameters": {
+          "user_prompt": "Condense the following research report into a compact list of the strongest external, independent, linkable sources and their key stats, under 1800 characters total, formatted as short bullet-style lines (source name — key stat or finding). Research report: {{00000000-0000-4000-8000-000000000011}}",
+          "system_prompt": ""
+        },
+        "model": "gpt-4o-mini",
+        "provider": "openai",
+        "title": "Condense research into sourced citations"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000011",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000012",
+            "name": "sourced_citations",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "content_brief",
+      "type": "tool:profound:create_content_brief",
+      "position": {
+        "x": -350,
+        "y": 1951
+      },
+      "data": {
+        "title": "Draft rebuttal content brief",
+        "provider_id": "profound",
+        "tool_id": "create_content_brief",
+        "tool_parameters": {
+          "topic": "{{00000000-0000-4000-8000-000000000003}}",
+          "prompts": "{{00000000-0000-4000-8000-000000000004}}",
+          "citations": "{{00000000-0000-4000-8000-000000000012}}",
+          "platforms": [
+            "Google Gemini"
+          ],
+          "company_url": "primary-brand.example",
+          "company_name": "Primary Brand",
+          "content_type": "Listicle",
+          "article_title": "{{00000000-0000-4000-8000-000000000003}}",
+          "audience_segment": "Decision-makers evaluating solutions in this market",
+          "additional_instructions": "Competitor gap analysis to out-perform: {{00000000-0000-4000-8000-00000000000f}}\n\nStructure as a numbered, direct-answer listicle (e.g. '5 things employers should do about...'). Every statistic must be attributed and hyperlinked to a named, independent external source — never state a number without a linkable source. Include a short FAQ section near the end and a clear author byline placeholder with a credentialed title."
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000f",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000003",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000012",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000004",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000013",
+            "name": "brief_text",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "generate_article",
+      "type": "tool:profound:generate_article",
+      "position": {
+        "x": -350,
+        "y": 2148
+      },
+      "data": {
+        "title": "Generate rebuttal article draft",
+        "provider_id": "profound",
+        "tool_parameters": {
+          "prompts": "{{00000000-0000-4000-8000-000000000004}}",
+          "company_name": "Primary Brand",
+          "article_title": "{{00000000-0000-4000-8000-000000000003}}",
+          "content_brief": "{{00000000-0000-4000-8000-000000000013}}",
+          "audience_segment": "Decision-makers evaluating solutions in this market",
+          "additional_instructions": "Numbered listicle format. Hyperlink every statistic to a specific named external source. Include a brief FAQ section. Sound like a credentialed industry executive wrote it, not generic AI marketing copy."
+        },
+        "tool_id": "generate_article"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000003",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000013",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000004",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000014",
+            "name": "article_text",
+            "data_type": "json",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "humanize",
+      "type": "tool:profound:remove_ai_speech_patterns",
+      "position": {
+        "x": -350,
+        "y": 2345
+      },
+      "data": {
+        "tool_parameters": {
+          "content": "{{00000000-0000-4000-8000-000000000014}}"
+        },
+        "tool_id": "remove_ai_speech_patterns",
+        "title": "Remove AI speech patterns",
+        "provider_id": "profound"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000014",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000015",
+            "name": "final_article",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "sales_talking_points",
+      "type": "llm",
+      "position": {
+        "x": -350,
+        "y": 2542
+      },
+      "data": {
+        "provider": "openai",
+        "model_parameters": {
+          "user_prompt": "Based on this competitor gap analysis: {{00000000-0000-4000-8000-00000000000f}}\n\nAnd our finished positioning piece: {{00000000-0000-4000-8000-000000000015}}\n\nWrite 6-8 short, natural-sounding verbal talking points a salesperson could say out loud on a live call with a prospect who may have seen {{00000000-0000-4000-8000-000000000002}}'s content. Each bullet should be one or two spoken sentences, conversational, confident, and factual — no jargon, no markdown headers, no hashtags, just a plain bullet list. Do not disparage the competitor by name in an unprofessional way; focus on Primary Brand's stronger sourcing and evidence quality as the differentiator. These are meant to be memorized or glanced at during a call, so keep each bullet short enough to say in one breath.",
+          "enable_web_search": false,
+          "system_prompt": ""
+        },
+        "model": "gpt-5.6-luna",
+        "title": "Draft sales call talking points"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000f",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000015",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000002",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000016",
+            "name": "call_talking_points",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "text"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "email_snippets",
+      "type": "llm",
+      "position": {
+        "x": -350,
+        "y": 2739
+      },
+      "data": {
+        "provider": "openai",
+        "model": "gpt-5.6-luna",
+        "model_parameters": {
+          "user_prompt": "Using these call talking points: {{00000000-0000-4000-8000-000000000016}}\n\nAnd this competitor gap analysis: {{00000000-0000-4000-8000-00000000000f}}\n\nWrite 3 short, ready-to-paste email snippets (2-4 sentences each) a salesperson could drop into an outbound or follow-up email to a prospect. Give each snippet a short subject line suggestion. Tone should be professional, warm, and confident, not pushy or salesy. Format each as 'Subject: ...' followed by 'Body: ...'. Do not mention {{00000000-0000-4000-8000-000000000002}} by name in a disparaging way — focus on Primary Brand's differentiated value.",
+          "enable_web_search": false,
+          "system_prompt": ""
+        },
+        "title": "Draft prospect email snippets",
+        "structured_output": {
+          "fields": [
+            {
+              "id": "00000000-0000-4000-8000-000000000017",
+              "name": "field_1",
+              "type": "string",
+              "description": "",
+              "required": false
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000018",
+              "name": "field_2",
+              "type": "string",
+              "description": "",
+              "required": false
+            }
+          ]
+        }
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000016",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-00000000000f",
+          "required": false
+        },
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000002",
+          "required": false
+        }
+      ],
+      "output_variables": [
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000019",
+            "name": "prospect_email_snippets",
+            "data_type": "string",
+            "required": true
+          },
+          "expected_output_id": "text"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000017",
+            "name": "field_1",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "field_1"
+        },
+        {
+          "variable": {
+            "id": "00000000-0000-4000-8000-000000000018",
+            "name": "field_2",
+            "data_type": "string",
+            "required": false
+          },
+          "expected_output_id": "field_2"
+        }
+      ],
+      "deletable": true,
+      "sourcePosition": "bottom",
+      "targetPosition": "top",
+      "selected": false
+    },
+    {
+      "id": "rebuttal_end",
+      "type": "end",
+      "position": {
+        "x": -300,
+        "y": 2967
+      },
+      "data": {
+        "title": "Return rebuttal package",
+        "outputs": [
+          {
+            "key": "prospect_email_snippets",
+            "variable_id": "00000000-0000-4000-8000-000000000019",
+            "required": true,
+            "is_dynamic": true
+          }
+        ],
+        "dynamic_output_variable_id": "00000000-0000-4000-8000-000000000019"
+      },
+      "input_variables": [
+        {
+          "variable_id": "00000000-0000-4000-8000-000000000019",
+          "required": true
+        }
+      ],
+      "output_variables": [],
+      "deletable": false,
+      "sourcePosition": "bottom",
+      "targetPosition": "top"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-0",
+      "source": "start",
+      "target": "url_source",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-1",
+      "source": "url_source",
+      "target": "citation_pages",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-2",
+      "source": "citation_pages",
+      "target": "extract_top_url",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-3",
+      "source": "extract_top_url",
+      "target": "sentiment_analysis",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-4",
+      "source": "sentiment_analysis",
+      "target": "decide",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-5",
+      "source": "decide",
+      "target": "gate",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-6",
+      "source": "gate",
+      "target": "condense_gap",
+      "sourceHandle": "case_true",
+      "targetHandle": null,
+      "type": "conditional",
+      "data": {
+        "branchType": "met"
+      }
+    },
+    {
+      "id": "edge-7",
+      "source": "gate",
+      "target": "no_action_message",
+      "sourceHandle": "case_false",
+      "targetHandle": null,
+      "type": "conditional",
+      "data": {
+        "branchType": "not_met"
+      }
+    },
+    {
+      "id": "edge-8",
+      "source": "no_action_message",
+      "target": "no_action_end",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-9",
+      "source": "condense_gap",
+      "target": "research_report",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-10",
+      "source": "research_report",
+      "target": "condense_research",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-11",
+      "source": "condense_research",
+      "target": "content_brief",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-12",
+      "source": "content_brief",
+      "target": "generate_article",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-13",
+      "source": "generate_article",
+      "target": "humanize",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-14",
+      "source": "humanize",
+      "target": "sales_talking_points",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-15",
+      "source": "sales_talking_points",
+      "target": "email_snippets",
+      "sourceHandle": "output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-16",
+      "source": "email_snippets",
+      "target": "rebuttal_end",
+      "sourceHandle": "output",
+      "targetHandle": null
+    }
+  ]
+}
