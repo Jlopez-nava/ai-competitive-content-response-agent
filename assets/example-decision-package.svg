@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+  <title id="title">Fictional competitive response decision package</title>
+  <desc id="desc">A fictional example shows 31 citations against a threshold of 20 and a positive sentiment ratio of 0.75 against a threshold of 0.65, leading to a response package.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#eef6fb"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#25445b" flood-opacity=".12"/>
+    </filter>
+    <style>
+      .eyebrow{font:800 14px ui-sans-serif,system-ui;letter-spacing:2px;fill:#0e7490}
+      .heading{font:750 34px ui-sans-serif,system-ui;fill:#102a43}
+      .sub{font:400 17px ui-sans-serif,system-ui;fill:#486581}
+      .metric{font:800 44px ui-sans-serif,system-ui;fill:#102a43}
+      .label{font:700 16px ui-sans-serif,system-ui;fill:#243b53}
+      .copy{font:400 14px ui-sans-serif,system-ui;fill:#627d98}
+      .item{font:650 16px ui-sans-serif,system-ui;fill:#243b53}
+    </style>
+  </defs>
+  <rect width="1400" height="760" rx="32" fill="url(#bg)"/>
+  <text x="72" y="72" class="eyebrow">FICTIONAL EXAMPLE · NO LIVE COMPANY DATA</text>
+  <text x="72" y="120" class="heading">Competitive response decision</text>
+  <text x="72" y="155" class="sub">Example competitor page: competitor-a.example/guide</text>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="205" width="360" height="190" rx="22" fill="#fff"/>
+    <text x="104" y="247" class="label">Citation volume</text>
+    <text x="104" y="308" class="metric">31</text>
+    <text x="184" y="305" class="sub">total citations</text>
+    <rect x="104" y="338" width="296" height="12" rx="6" fill="#d9e2ec"/>
+    <rect x="104" y="338" width="220" height="12" rx="6" fill="#0891b2"/>
+    <text x="104" y="376" class="copy">Threshold: 20 · Passed</text>
+
+    <rect x="455" y="205" width="360" height="190" rx="22" fill="#fff"/>
+    <text x="487" y="247" class="label">Positive validation ratio</text>
+    <text x="487" y="308" class="metric">0.75</text>
+    <text x="603" y="305" class="sub">9 positive · 3 negative</text>
+    <rect x="487" y="338" width="296" height="12" rx="6" fill="#d9e2ec"/>
+    <rect x="487" y="338" width="222" height="12" rx="6" fill="#0891b2"/>
+    <text x="487" y="376" class="copy">Threshold: 0.65 · Passed</text>
+
+    <rect x="838" y="205" width="490" height="190" rx="22" fill="#083344"/>
+    <circle cx="888" cy="257" r="22" fill="#22d3ee"/>
+    <path d="M878 257l7 7 14-17" fill="none" stroke="#083344" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="925" y="266" class="eyebrow" fill="#a5f3fc">BOTH CONDITIONS PASSED</text>
+    <text x="874" y="316" class="heading" fill="#f8fafc">Build response package</text>
+    <text x="874" y="352" class="copy" fill="#b6d8e3">The workflow advances to evidence-led research and drafting.</text>
+  </g>
+
+  <text x="72" y="470" class="eyebrow">DRAFT DELIVERABLES</text>
+  <g filter="url(#shadow)">
+    <rect x="72" y="500" width="1256" height="165" rx="22" fill="#fff"/>
+    <circle cx="118" cy="548" r="18" fill="#cffafe"/>
+    <text x="118" y="554" text-anchor="middle" class="label" fill="#0e7490">1</text>
+    <text x="150" y="554" class="item">Evidence-gap analysis</text>
+
+    <circle cx="438" cy="548" r="18" fill="#cffafe"/>
+    <text x="438" y="554" text-anchor="middle" class="label" fill="#0e7490">2</text>
+    <text x="470" y="554" class="item">Independent source list</text>
+
+    <circle cx="788" cy="548" r="18" fill="#cffafe"/>
+    <text x="788" y="554" text-anchor="middle" class="label" fill="#0e7490">3</text>
+    <text x="820" y="554" class="item">Brief + article draft</text>
+
+    <circle cx="1110" cy="548" r="18" fill="#cffafe"/>
+    <text x="1110" y="554" text-anchor="middle" class="label" fill="#0e7490">4</text>
+    <text x="1142" y="554" class="item">Sales enablement</text>
+
+    <text x="118" y="614" class="copy">Generated from supplied Profound evidence and approved research inputs.</text>
+    <rect x="1006" y="590" width="274" height="42" rx="21" fill="#ecfeff" stroke="#67e8f9"/>
+    <text x="1143" y="616" text-anchor="middle" class="label" fill="#0e7490">Human review required</text>
+  </g>
+  <text x="72" y="716" class="copy">All figures and brands are illustrative. This visual contains no production data.</text>
+</svg>
